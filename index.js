@@ -306,7 +306,7 @@ app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
 
     // Hardcoded credentials for demonstration
-    if (username === 'admin' && password === 'password123') {
+    if (username === 'sam@traininhealthandsafety.com' && password === 'admin@2025TIHS') {
         return res.status(200).json({ message: 'Login successful!', token: 'mock-jwt-token' });
     } else {
         return res.status(401).json({ message: 'Invalid credentials.' });
