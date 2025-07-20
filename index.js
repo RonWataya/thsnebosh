@@ -44,8 +44,8 @@ pool.getConnection()
 
 //https
 const options = {
-  //  key: fs.readFileSync('/etc/letsencrypt/live/traininghealthandsafety.com/privkey.pem'),
-  //  cert: fs.readFileSync('/etc/letsencrypt/live/traininghealthandsafety.com/fullchain.pem')
+    key: fs.readFileSync('/etc/letsencrypt/live/traininghealthandsafety.com/privkey.pem'),
+    cert: fs.readFileSync('/etc/letsencrypt/live/traininghealthandsafety.com/fullchain.pem')
 };
 
 
@@ -436,13 +436,13 @@ app.delete('/api/learners/:id', async (req, res) => {
     }
 });
 // Start the server
-/*https.createServer(options, app).listen(PORT, () => {
+https.createServer(options, app).listen(PORT, () => {
     console.log(`HTTPS server running on port ${PORT}`);
-});*/
+});
 
 // Start the server
-app.listen(PORT, () => {
+/*app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
    
-});
+});*/
 
