@@ -44,8 +44,8 @@ pool.getConnection()
 
 //https
 const options = {
-    key: fs.readFileSync('/etc/letsencrypt/live/traininghealthandsafety.com/privkey.pem'),
-    cert: fs.readFileSync('/etc/letsencrypt/live/traininghealthandsafety.com/fullchain.pem')
+  //  key: fs.readFileSync('/etc/letsencrypt/live/traininghealthandsafety.com/privkey.pem'),
+  //  cert: fs.readFileSync('/etc/letsencrypt/live/traininghealthandsafety.com/fullchain.pem')
 };
 
 
@@ -301,8 +301,148 @@ app.get('/api/attendance', async (req, res) => {
     }
 });
 
+// Mock Login Endpoint
+app.post('/api/login', (req, res) => {
+    const { username, password } = req.body;
+
+    // Hardcoded credentials for demonstration
+    if (username === 'admin' && password === 'password123') {
+        return res.status(200).json({ message: 'Login successful!', token: 'mock-jwt-token' });
+    } else {
+        return res.status(401).json({ message: 'Invalid credentials.' });
+    }
+});
+
+// Get all learners
+app.get('/api/learners', async (req, res) => {
+    let connection;
+    try {
+        connection = await pool.getConnection();
+        const [rows] = await connection.execute('SELECT learner_id, learner_name, registration_date FROM learners ORDER BY registration_date DESC');
+        res.status(200).json(rows);
+    } catch (error) {
+        console.error('Error fetching learners:', error);
+        res.status(500).json({ message: 'Error fetching learners.' });
+    } finally {
+        if (connection) connection.release();
+    }
+});
+
+// Get total number of learners
+app.get('/api/learners/count', async (req, res) => {
+    let connection;
+    try {
+        connection = await pool.getConnection();
+        const [rows] = await connection.execute('SELECT COUNT(*) AS total_learners FROM learners');
+        res.status(200).json(rows[0]);
+    } catch (error) {
+        console.error('Error fetching learner count:', error);
+        res.status(500).json({ message: 'Error fetching learner count.' });
+    } finally {
+        if (connection) connection.release();
+    }
+});
+
+// Get attendance records for a specific learner
+app.get('/api/learners/:id/attendance', async (req, res) => {
+    const { id } = req.params;
+    let connection;
+    try {
+        connection = await pool.getConnection();
+        const [rows] = await connection.execute(
+            `SELECT
+                ar.record_id,
+                ar.attendance_date,
+                ar.module_day,
+                ar.module_title,
+                ar.signature1, ar.is_signed1,
+                ar.signature2, ar.is_signed2,
+                ar.signature3, ar.is_signed3,
+                ar.signature4, ar.is_signed4,
+                ar.submission_timestamp
+            FROM attendance_records ar
+            WHERE ar.learner_id = ?
+            ORDER BY ar.attendance_date DESC, ar.submission_timestamp DESC`,
+            [id]
+        );
+
+        // Group attendance records by module_day and module_title to show distinct courses/days
+        const groupedRecords = {};
+        rows.forEach(row => {
+            const key = `${row.module_day}-${row.module_title}`; // Unique key for each module/day
+            if (!groupedRecords[key]) {
+                groupedRecords[key] = {
+                    attendanceDate: row.attendance_date,
+                    moduleDay: row.module_day,
+                    moduleTitle: row.module_title,
+                    signatures: {},
+                    isSignedStatus: {},
+                    submissionTimestamp: row.submission_timestamp // Initialize with the first timestamp
+                };
+            }
+
+            // Populate all signature and is_signed fields. Assuming the first row encountered for a given key will have the most recent data.
+            // We just need to ensure all signature and is_signed fields are populated.
+            for (let i = 1; i <= 4; i++) {
+                groupedRecords[key].signatures[`signature${i}`] = row[`signature${i}`];
+                groupedRecords[key].isSignedStatus[`is_signed${i}`] = row[`is_signed${i}`];
+            }
+
+            // Update submission timestamp and attendance date to the latest for the group
+            // This ensures the displayed date reflects the most recent interaction
+            if (row.submission_timestamp > groupedRecords[key].submissionTimestamp) {
+                groupedRecords[key].submissionTimestamp = row.submission_timestamp;
+                groupedRecords[key].attendanceDate = row.attendance_date;
+            }
+        });
+
+        res.status(200).json(Object.values(groupedRecords)); // Send array of grouped attendance
+    } catch (error) {
+        console.error('Error fetching attendance records for admin dashboard:', error);
+        res.status(500).json({ message: 'Error fetching attendance records.' });
+    } finally {
+        if (connection) connection.release();
+    }
+});
+
+// NEW: Delete a learner and their attendance records
+app.delete('/api/learners/:id', async (req, res) => {
+    const learnerId = req.params.id;
+    let connection;
+    try {
+        connection = await pool.getConnection();
+        await connection.beginTransaction(); // Start a transaction
+
+        // 1. Delete associated attendance records
+        await connection.execute('DELETE FROM attendance_records WHERE learner_id = ?', [learnerId]);
+
+        // 2. Delete the learner
+        const [result] = await connection.execute('DELETE FROM learners WHERE learner_id = ?', [learnerId]);
+
+        if (result.affectedRows === 0) {
+            await connection.rollback(); // Rollback if learner not found
+            return res.status(404).json({ message: 'Learner not found.' });
+        }
+
+        await connection.commit(); // Commit the transaction
+        res.status(200).json({ message: 'Learner and associated attendance records removed successfully.' });
+
+    } catch (error) {
+        if (connection) await connection.rollback(); // Rollback on error
+        console.error('Error removing learner and attendance records:', error);
+        res.status(500).json({ message: 'Error removing learner and attendance records.' });
+    } finally {
+        if (connection) connection.release();
+    }
+});
 // Start the server
-https.createServer(options, app).listen(PORT, () => {
+/*https.createServer(options, app).listen(PORT, () => {
     console.log(`HTTPS server running on port ${PORT}`);
+});*/
+
+// Start the server
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+   
 });
 
