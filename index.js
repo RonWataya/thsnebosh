@@ -21,9 +21,9 @@ app.use(express.static(__dirname));
 
 // MySQL Connection Pool
 const pool = mysql.createPool({
-    host: process.env.DB_HOST || 'tests.cnm0ouk4axh4.us-east-1.rds.amazonaws.com',
+    host: process.env.DB_HOST || 'tihsdb.cb6c84mgabue.eu-north-1.rds.amazonaws.com',
     user: process.env.DB_USER || 'admin',
-    password: process.env.DB_PASSWORD || 'wataya1993', // Use empty string if no password
+    password: process.env.DB_PASSWORD || 'TrainInHealthAndSafety', // Use empty string if no password
     database: process.env.DB_NAME || 'nebosh_attendance', // Using the database name from SQL
     port: parseInt(process.env.DB_PORT) || 3306, // Ensure port is an integer
     waitForConnections: true,
